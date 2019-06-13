@@ -1,0 +1,77 @@
+#!/bin/bash
+
+set -e
+
+RELEASER_VERSION="2.1.0"
+DOCKER_OPS_VERSION="2.0.0"
+SECRET_OPS_VERSION="0.6.1"
+
+SECRET_OPS_FILE="ops/secret-ops"
+SECRET_OPS_TAR_FILE="ops/secret-ops-${SECRET_OPS_VERSION}.tar.gz"
+RELEASER_FILE="ops/releaser-${RELEASER_VERSION}"
+DOCKER_OPS_FILE="ops/docker-ops-${DOCKER_OPS_VERSION}"
+
+mkdir -p ops
+if [[ ! -f $RELEASER_FILE ]];then
+  wget --quiet -O $RELEASER_FILE https://github.com/kudulab/releaser/releases/download/${RELEASER_VERSION}/releaser
+fi
+source $RELEASER_FILE
+if [[ ! -f $DOCKER_OPS_FILE ]];then
+  wget --quiet -O $DOCKER_OPS_FILE https://github.com/kudulab/docker-ops/releases/download/${DOCKER_OPS_VERSION}/docker-ops
+fi
+source $DOCKER_OPS_FILE
+if [[ ! -f $SECRET_OPS_TAR_FILE ]];then
+  wget --quiet -O $SECRET_OPS_TAR_FILE https://github.com/kudulab/secret-ops/releases/download/${SECRET_OPS_VERSION}/secret-ops.tar.gz
+  tar -xf $SECRET_OPS_TAR_FILE -C ops
+fi
+source $SECRET_OPS_FILE
+
+image_name="kudulab/scilab-dojo"
+image_dir="./image"
+image_registry="dockerhub"
+imagerc_filename="imagerc"
+
+set +u
+command="$1"
+case "${command}" in
+  set_version)
+      set +u
+      releaser::bump_changelog_version "$2" "$3"
+      ./tasks dockerfiles
+      ;;
+  verify)
+      releaser::verify_release_ready
+      ;;
+  build)
+      if [[ -z "${GO_PIPELINE_LABEL}" ]];then
+        # set to the latest git commit hash
+        ci_version=$(git rev-parse HEAD)
+      else
+        ci_version="${GO_PIPELINE_LABEL}"
+      fi
+      image_tag="${ci_version}"
+      docker_build_options="-f Dockerfile"
+      docker_ops::docker_build "${image_dir}" "${imagerc_filename}" "${image_name}" "${image_tag}" "${image_registry}"
+      #docker_ops::push "${image_dir}" "${imagerc_filename}"
+      ;;
+  example)
+      docker_ops::ensure_pulled_image "${image_dir}" "${imagerc_filename}"
+      echo "Testing image: ${KUDU_DOCKER_IMAGE_URL}"
+      echo "DOJO_DOCKER_IMAGE=\"${KUDU_DOCKER_IMAGE_URL}\"" > ./Dojofile.example
+      echo "DOJO_IDENTITY_OUTER=\"$(pwd)/test/integration/identities/full\"" >> ./Dojofile.example
+      echo "DOJO_WORK_OUTER=$(pwd)/test/integration/test_dojo_work" >> ./Dojofile.example
+      dojo -c ./Dojofile.example
+      ;;
+  itest)
+      docker_ops::ensure_pulled_image "${image_dir}" "${imagerc_filename}"
+      echo "Testing image: ${KUDU_DOCKER_IMAGE_URL}"
+      echo "DOJO_DOCKER_IMAGE=\"${KUDU_DOCKER_IMAGE_URL}\"" > Dojofile.to_be_tested
+      echo "DOJO_WORK_OUTER=$(pwd)/test/integration/test_dojo_work" >> Dojofile.to_be_tested
+      time bats "$(pwd)/test/integration/end_user"
+      ;;
+  *)
+      echo "Invalid command: '${command}'"
+      exit 1
+      ;;
+esac
+set +e
