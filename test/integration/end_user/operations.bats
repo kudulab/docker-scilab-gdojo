@@ -14,6 +14,6 @@ load '/opt/bats-assert/load.bash'
   run /bin/bash -c "dojo -c Dojofile.to_be_tested \"scilab -version\""
   # this is printed on test failure
   echo "output: $output"
-  assert_line --partial "scilab-5.5.2"
-  assert_equal "$status" 1
+  assert_line --partial "scilab-6.0.2"
+  assert_equal "$status" 0
 }
