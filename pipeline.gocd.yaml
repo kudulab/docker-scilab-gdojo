@@ -1,0 +1,82 @@
+format_version: 3
+pipelines:
+  docker-scilab-gdojo:
+    group: science
+    label_template: "${git[:8]}"
+    materials:
+      git:
+        type: configrepo
+        blacklist:
+          - "**/*.md"
+    secure_variables:
+      VAULT_TOKEN: "AES:CtseKn4LvXkNn/chn/9K3Q==:12VBXiIa+A7bikKduu4k5UuWjt1jvu9wCdzFHLlL5+0="
+    stages:
+      - build:
+          clean_workspace: true
+          jobs:
+            docker_image:
+              resources:
+                - docker_builder
+              artifacts:
+                - build:
+                    source: image/imagerc
+                    destination:
+              tasks:
+               - exec:
+                  command: /bin/bash
+                  arguments:
+                    - -c
+                    - ./tasks verify
+               - exec:
+                  command: /bin/bash
+                  arguments:
+                    - -c
+                    - ./tasks build
+      - itest:
+          clean_workspace: true
+          jobs:
+            end_user:
+              resources:
+                - docker_builder
+              tasks:
+                - fetch:
+                    stage: build
+                    job: docker_image
+                    is_file: yes
+                    source: imagerc
+                    destination: image/
+                - exec:
+                    command: /bin/bash
+                    arguments:
+                      - -c
+                      - ./tasks itest
+      - release:
+          clean_workspace: true
+          jobs:
+            code:
+              resources:
+                - docker_builder
+              tasks:
+                - exec:
+                    command: /bin/bash
+                    arguments:
+                      - -c
+                      - ./tasks release
+      - publish:
+          clean_workspace: true
+          jobs:
+            docker_image:
+              resources:
+                - docker_builder
+              tasks:
+                - fetch:
+                    stage: build
+                    job: docker_image
+                    is_file: yes
+                    source: imagerc
+                    destination: image/
+                - exec:
+                    command: /bin/bash
+                    arguments:
+                      - -c
+                      - ./tasks publish
