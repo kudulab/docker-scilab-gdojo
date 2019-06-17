@@ -10,9 +10,10 @@ RUN apt-get update && \
   rm -r /tmp/dojo_git
 
 ENV SCILAB_VERSION=6.0.2
+// scilab-doc package is needed for help and demos in scilab
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  scilab=${SCILAB_VERSION}-0ubuntu2 &&\
+  scilab=${SCILAB_VERSION}-0ubuntu2 scilab-doc=${SCILAB_VERSION}-0ubuntu2 &&\
   apt-get -y autoremove &&\
   apt-get -y autoclean &&\
   apt-get -y clean &&\
