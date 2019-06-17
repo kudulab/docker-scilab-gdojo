@@ -83,7 +83,7 @@ case "${command}" in
       time bats "$(pwd)/test/integration/end_user"
       ;;
   release)
-      ./tasks verify_version
+      ./tasks verify
       releaser::git_tag_from_changelog
       ;;
   publish)
